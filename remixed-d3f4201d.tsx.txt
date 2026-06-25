@@ -1,0 +1,959 @@
+import { useState, useEffect, useContext, createContext, useReducer, useCallback } from "react";
+
+// ─── DESIGN TOKENS ───────────────────────────────────────────────────────────
+const T = {
+  navy: "#0D1B35", navyMid: "#152444", navyLight: "#1E3359",
+  blue: "#1A56DB", blueLt: "#3B82F6", blueGlow: "rgba(26,86,219,0.18)",
+  gold: "#D97706", goldLt: "#F59E0B",
+  white: "#FFFFFF", snow: "#F8FAFC", silver: "#F1F5F9",
+  border: "#E2E8F0", borderDark: "#CBD5E1",
+  text: "#0F172A", textMid: "#475569", textMuted: "#94A3B8",
+  green: "#10B981", red: "#EF4444", orange: "#F97316",
+  radius: "12px", radiusSm: "8px", radiusLg: "20px",
+};
+
+const G = {
+  card: { background: T.white, border: `1px solid ${T.border}`, borderRadius: T.radius, boxShadow: "0 1px 4px rgba(0,0,0,0.06)" },
+  input: { width: "100%", padding: "10px 14px", border: `1px solid ${T.border}`, borderRadius: T.radiusSm, fontSize: "0.9rem", color: T.text, outline: "none", fontFamily: "inherit", background: T.white, boxSizing: "border-box" },
+  label: { fontSize: "0.78rem", fontWeight: 600, color: T.textMid, display: "block", marginBottom: 5, textTransform: "uppercase", letterSpacing: "0.04em" },
+  btnPrimary: { background: T.blue, color: T.white, border: "none", borderRadius: T.radiusSm, padding: "11px 22px", fontWeight: 700, fontSize: "0.9rem", cursor: "pointer", fontFamily: "inherit" },
+  btnSecondary: { background: "transparent", color: T.blue, border: `1.5px solid ${T.blue}`, borderRadius: T.radiusSm, padding: "10px 20px", fontWeight: 600, fontSize: "0.88rem", cursor: "pointer", fontFamily: "inherit" },
+  btnGhost: { background: "transparent", color: T.textMid, border: `1px solid ${T.border}`, borderRadius: T.radiusSm, padding: "9px 18px", fontWeight: 500, fontSize: "0.85rem", cursor: "pointer", fontFamily: "inherit" },
+  btnDanger: { background: "#FEF2F2", color: T.red, border: `1px solid #FECACA`, borderRadius: T.radiusSm, padding: "9px 18px", fontWeight: 600, fontSize: "0.85rem", cursor: "pointer", fontFamily: "inherit" },
+};
+
+// ─── MOCK DATA ────────────────────────────────────────────────────────────────
+const PRODUCTS = [
+  { id: 1, brand: "ASUS", name: "ROG Strix G16 2025", price: 24999000, oldPrice: 27499000, badge: "Terlaris", category: "Gaming", specs: ["RTX 4060", "16GB RAM", "512GB SSD", "165Hz"], icon: "🎮", stock: 8 },
+  { id: 2, brand: "LENOVO", name: "ThinkPad X1 Carbon G11", price: 22500000, oldPrice: null, badge: "Baru", category: "Bisnis", specs: ["Core Ultra 7", "16GB RAM", "1TB SSD", "OLED"], icon: "💼", stock: 5 },
+  { id: 3, brand: "APPLE", name: "MacBook Air M3 13\"", price: 18999000, oldPrice: 20999000, badge: "Diskon", category: "Kreatif", specs: ["Apple M3", "8GB RAM", "256GB SSD", "Liquid Retina"], icon: "🍎", stock: 12 },
+  { id: 4, brand: "DELL", name: "XPS 15 9530 OLED", price: 26500000, oldPrice: null, badge: "Baru", category: "Kreatif", specs: ["i7-13700H", "16GB RAM", "512GB SSD", "OLED Touch"], icon: "✨", stock: 4 },
+  { id: 5, brand: "HP", name: "OMEN 16 Gaming 2024", price: 16499000, oldPrice: 18000000, badge: "Diskon", category: "Gaming", specs: ["RTX 4050", "16GB RAM", "512GB SSD", "144Hz"], icon: "🏹", stock: 7 },
+  { id: 6, brand: "ACER", name: "Swift Go 14 OLED", price: 10999000, oldPrice: null, badge: "Baru", category: "Pelajar", specs: ["Core Ultra 5", "16GB RAM", "512GB SSD", "2.8K OLED"], icon: "🌟", stock: 15 },
+  { id: 7, brand: "MSI", name: "Titan GT77 HX", price: 39999000, oldPrice: 42000000, badge: "Premium", category: "Gaming", specs: ["RTX 4090", "64GB RAM", "2TB SSD", "4K Mini-LED"], icon: "⚡", stock: 2 },
+  { id: 8, brand: "SAMSUNG", name: "Galaxy Book4 Pro 360", price: 19500000, oldPrice: null, badge: "Baru", category: "Bisnis", specs: ["Core Ultra 7", "16GB RAM", "512GB SSD", "AMOLED Touch"], icon: "💎", stock: 6 },
+];
+
+const SERVICES = [
+  { id: "lcd", name: "Ganti LCD / Layar", price: 350000, duration: "1-2 hari", icon: "🖥️" },
+  { id: "bat", name: "Ganti Baterai", price: 250000, duration: "2-3 jam", icon: "🔋" },
+  { id: "clean", name: "Cleaning & Thermal Paste", price: 120000, duration: "2-3 jam", icon: "❄️" },
+  { id: "ram", name: "Upgrade RAM & SSD", price: 150000, duration: "1-2 jam", icon: "💾" },
+  { id: "kb", name: "Ganti Keyboard", price: 200000, duration: "1 hari", icon: "🪛" },
+  { id: "port", name: "Ganti Port Charger", price: 180000, duration: "3-4 jam", icon: "🔌" },
+  { id: "os", name: "Install / Reinstall OS", price: 100000, duration: "1-2 jam", icon: "💻" },
+  { id: "mb", name: "Servis Motherboard", price: 300000, duration: "3-5 hari", icon: "🛡️" },
+];
+
+const TECHNICIANS = [
+  { id: 1, name: "Budi Santoso", specialty: "LCD & Motherboard", rating: 4.9 },
+  { id: 2, name: "Rina Dewi", specialty: "Software & OS", rating: 4.8 },
+  { id: 3, name: "Agus Wirawan", specialty: "Hardware & Upgrade", rating: 4.9 },
+];
+
+// ─── JWT HELPERS (mock) ───────────────────────────────────────────────────────
+const MOCK_USERS = [
+  { id: 1, name: "Admin TechNova", email: "admin@technova.id", password: "admin123", role: "admin" },
+  { id: 2, name: "Budi Pelanggan", email: "budi@email.com", password: "budi123", role: "user" },
+];
+
+function mockSign(payload) {
+  return btoa(JSON.stringify({ ...payload, exp: Date.now() + 86400000 }));
+}
+function mockDecode(token) {
+  try { return JSON.parse(atob(token)); } catch { return null; }
+}
+
+// ─── CONTEXT ─────────────────────────────────────────────────────────────────
+const AppCtx = createContext(null);
+
+function cartReducer(state, action) {
+  switch (action.type) {
+    case "ADD": {
+      const ex = state.find(i => i.id === action.item.id);
+      if (ex) return state.map(i => i.id === action.item.id ? { ...i, qty: i.qty + 1 } : i);
+      return [...state, { ...action.item, qty: 1 }];
+    }
+    case "REMOVE": return state.filter(i => i.id !== action.id);
+    case "QTY": return state.map(i => i.id === action.id ? { ...i, qty: Math.max(1, action.qty) } : i);
+    case "CLEAR": return [];
+    default: return state;
+  }
+}
+
+function orderReducer(state, action) {
+  switch (action.type) {
+    case "ADD_ORDER": return [action.order, ...state];
+    case "ADD_BOOKING": return [action.booking, ...state];
+    case "UPDATE_STATUS": return state.map(o => o.id === action.id ? { ...o, status: action.status } : o);
+    default: return state;
+  }
+}
+
+// ─── HELPERS ─────────────────────────────────────────────────────────────────
+const fmt = n => "Rp " + n.toLocaleString("id-ID");
+const genId = () => Math.random().toString(36).slice(2, 9).toUpperCase();
+const today = () => new Date().toISOString().split("T")[0];
+
+function Badge({ label, color = T.blue }) {
+  return (
+    <span style={{ fontSize: "0.68rem", fontWeight: 700, padding: "3px 9px", borderRadius: 99, background: color + "18", color, border: `1px solid ${color}30`, letterSpacing: "0.04em", textTransform: "uppercase" }}>
+      {label}
+    </span>
+  );
+}
+
+function Toast({ msg, onClose }) {
+  useEffect(() => { const t = setTimeout(onClose, 3000); return () => clearTimeout(t); }, [onClose]);
+  return (
+    <div style={{ position: "fixed", bottom: 28, right: 28, zIndex: 9999, background: T.navy, color: T.white, padding: "14px 20px", borderRadius: T.radius, boxShadow: "0 8px 32px rgba(0,0,0,0.3)", fontSize: "0.875rem", maxWidth: 300, display: "flex", gap: 10, alignItems: "center" }}>
+      <span style={{ fontSize: "1rem" }}>✅</span> {msg}
+    </div>
+  );
+}
+
+function Modal({ title, children, onClose, width = 520 }) {
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }} onClick={onClose}>
+      <div style={{ background: T.white, borderRadius: T.radiusLg, width: "100%", maxWidth: width, maxHeight: "90vh", overflow: "auto", boxShadow: "0 24px 64px rgba(0,0,0,0.2)" }} onClick={e => e.stopPropagation()}>
+        <div style={{ padding: "22px 28px", borderBottom: `1px solid ${T.border}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <span style={{ fontWeight: 700, fontSize: "1.05rem", color: T.text }}>{title}</span>
+          <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", fontSize: "1.3rem", color: T.textMuted, lineHeight: 1 }}>×</button>
+        </div>
+        <div style={{ padding: 28 }}>{children}</div>
+      </div>
+    </div>
+  );
+}
+
+function StatusPill({ status }) {
+  const map = {
+    pending: { label: "Menunggu", color: T.orange },
+    confirmed: { label: "Dikonfirmasi", color: T.blue },
+    processing: { label: "Diproses", color: T.gold },
+    done: { label: "Selesai", color: T.green },
+    cancelled: { label: "Dibatalkan", color: T.red },
+    booked: { label: "Booking", color: T.blueLt },
+  };
+  const s = map[status] || { label: status, color: T.textMid };
+  return <Badge label={s.label} color={s.color} />;
+}
+
+// ─── AUTH SCREEN ──────────────────────────────────────────────────────────────
+function AuthScreen({ onLogin }) {
+  const [tab, setTab] = useState("login");
+  const [form, setForm] = useState({ name: "", email: "", password: "" });
+  const [err, setErr] = useState("");
+
+  const set = k => e => setForm(f => ({ ...f, [k]: e.target.value }));
+
+  const handleSubmit = () => {
+    setErr("");
+    if (tab === "login") {
+      const u = MOCK_USERS.find(u => u.email === form.email && u.password === form.password);
+      if (!u) { setErr("Email atau password salah."); return; }
+      const token = mockSign({ id: u.id, name: u.name, email: u.email, role: u.role });
+      onLogin(token);
+    } else {
+      if (!form.name || !form.email || !form.password) { setErr("Semua kolom wajib diisi."); return; }
+      if (form.password.length < 6) { setErr("Password minimal 6 karakter."); return; }
+      const token = mockSign({ id: Date.now(), name: form.name, email: form.email, role: "user" });
+      onLogin(token);
+    }
+  };
+
+  const inp = (label, key, type = "text", ph = "") => (
+    <div style={{ marginBottom: 16 }}>
+      <label style={G.label}>{label}</label>
+      <input style={G.input} type={type} placeholder={ph} value={form[key]} onChange={set(key)} onKeyDown={e => e.key === "Enter" && handleSubmit()} />
+    </div>
+  );
+
+  return (
+    <div style={{ minHeight: "100vh", background: T.silver, display: "flex", alignItems: "center", justifyContent: "center", padding: 20, fontFamily: "'Inter', sans-serif" }}>
+      <div style={{ width: "100%", maxWidth: 420 }}>
+        <div style={{ textAlign: "center", marginBottom: 32 }}>
+          <div style={{ fontSize: "2rem", fontWeight: 900, color: T.navy, letterSpacing: -1 }}>
+            Tech<span style={{ color: T.blue }}>Nova</span>
+          </div>
+          <div style={{ color: T.textMuted, fontSize: "0.875rem", marginTop: 6 }}>Laptop & Servis Terpercaya</div>
+        </div>
+        <div style={{ ...G.card, padding: 32 }}>
+          <div style={{ display: "flex", marginBottom: 28, background: T.silver, borderRadius: T.radiusSm, padding: 4 }}>
+            {["login", "register"].map(t => (
+              <button key={t} onClick={() => { setTab(t); setErr(""); }} style={{ flex: 1, padding: "9px 0", border: "none", borderRadius: 6, fontWeight: 600, fontSize: "0.875rem", cursor: "pointer", fontFamily: "inherit", background: tab === t ? T.white : "transparent", color: tab === t ? T.navy : T.textMid, boxShadow: tab === t ? "0 1px 4px rgba(0,0,0,0.1)" : "none", transition: "all 0.15s" }}>
+                {t === "login" ? "Masuk" : "Daftar"}
+              </button>
+            ))}
+          </div>
+          {tab === "register" && inp("Nama Lengkap", "name", "text", "Nama Anda")}
+          {inp("Email", "email", "email", "email@example.com")}
+          {inp("Password", "password", "password", "••••••••")}
+          {err && <div style={{ background: "#FEF2F2", border: "1px solid #FECACA", color: T.red, padding: "10px 14px", borderRadius: T.radiusSm, fontSize: "0.85rem", marginBottom: 16 }}>{err}</div>}
+          <button style={{ ...G.btnPrimary, width: "100%", padding: "13px", fontSize: "0.95rem" }} onClick={handleSubmit}>
+            {tab === "login" ? "Masuk" : "Buat Akun"}
+          </button>
+          <div style={{ marginTop: 18, padding: "14px", background: T.silver, borderRadius: T.radiusSm, fontSize: "0.78rem", color: T.textMid }}>
+            <strong>Demo:</strong> admin@technova.id / admin123 &nbsp;|&nbsp; budi@email.com / budi123
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── NAV ─────────────────────────────────────────────────────────────────────
+function TopNav({ user, cart, page, setPage, onLogout }) {
+  const cartQty = cart.reduce((a, i) => a + i.qty, 0);
+  const navItems = user.role === "admin"
+    ? [{ id: "admin", label: "Dashboard Admin" }]
+    : [{ id: "katalog", label: "Katalog" }, { id: "servis", label: "Booking Servis" }, { id: "pesanan", label: "Pesanan Saya" }];
+
+  return (
+    <nav style={{ position: "sticky", top: 0, zIndex: 100, background: T.white, borderBottom: `1px solid ${T.border}`, padding: "0 24px", display: "flex", alignItems: "center", gap: 0, height: 60 }}>
+      <div style={{ fontSize: "1.35rem", fontWeight: 900, color: T.navy, letterSpacing: -0.5, marginRight: 36, cursor: "pointer" }} onClick={() => setPage("katalog")}>
+        Tech<span style={{ color: T.blue }}>Nova</span>
+      </div>
+      <div style={{ display: "flex", gap: 4, flex: 1 }}>
+        {navItems.map(n => (
+          <button key={n.id} onClick={() => setPage(n.id)} style={{ padding: "0 16px", height: 60, border: "none", background: "none", fontWeight: 600, fontSize: "0.875rem", cursor: "pointer", color: page === n.id ? T.blue : T.textMid, borderBottom: page === n.id ? `2px solid ${T.blue}` : "2px solid transparent", fontFamily: "inherit" }}>
+            {n.label}
+          </button>
+        ))}
+      </div>
+      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+        {user.role !== "admin" && (
+          <button onClick={() => setPage("cart")} style={{ position: "relative", background: cartQty > 0 ? T.blueGlow : T.silver, border: "none", borderRadius: T.radiusSm, padding: "8px 14px", cursor: "pointer", fontWeight: 600, fontSize: "0.875rem", color: T.navy, display: "flex", alignItems: "center", gap: 8 }}>
+            🛒
+            {cartQty > 0 && <span style={{ background: T.blue, color: T.white, borderRadius: 99, padding: "1px 7px", fontSize: "0.72rem", fontWeight: 800 }}>{cartQty}</span>}
+          </button>
+        )}
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <div style={{ width: 32, height: 32, borderRadius: "50%", background: T.blue, display: "flex", alignItems: "center", justifyContent: "center", color: T.white, fontWeight: 700, fontSize: "0.875rem" }}>
+            {user.name[0]}
+          </div>
+          <div style={{ fontSize: "0.8rem" }}>
+            <div style={{ fontWeight: 600, color: T.text, lineHeight: 1.2 }}>{user.name.split(" ")[0]}</div>
+            <div style={{ color: T.textMuted, fontSize: "0.72rem" }}>{user.role === "admin" ? "Administrator" : "Pelanggan"}</div>
+          </div>
+        </div>
+        <button onClick={onLogout} style={{ ...G.btnGhost, padding: "7px 14px", fontSize: "0.8rem" }}>Keluar</button>
+      </div>
+    </nav>
+  );
+}
+
+// ─── KATALOG ─────────────────────────────────────────────────────────────────
+function Katalog({ onAdd, setPage }) {
+  const [search, setSearch] = useState("");
+  const [cat, setCat] = useState("Semua");
+  const [sort, setSort] = useState("default");
+  const cats = ["Semua", "Gaming", "Bisnis", "Kreatif", "Pelajar"];
+
+  let list = PRODUCTS.filter(p => {
+    const q = search.toLowerCase();
+    return (!q || p.name.toLowerCase().includes(q) || p.brand.toLowerCase().includes(q));
+  }).filter(p => cat === "Semua" || p.category === cat);
+
+  if (sort === "asc") list = [...list].sort((a, b) => a.price - b.price);
+  if (sort === "desc") list = [...list].sort((a, b) => b.price - a.price);
+
+  const badgeColor = { Terlaris: T.gold, Baru: T.blue, Diskon: T.red, Premium: T.navy };
+
+  return (
+    <div style={{ maxWidth: 1200, margin: "0 auto", padding: "32px 24px" }}>
+      <div style={{ marginBottom: 28 }}>
+        <h1 style={{ fontSize: "1.6rem", fontWeight: 800, color: T.navy, marginBottom: 4 }}>Katalog Laptop</h1>
+        <p style={{ color: T.textMid, fontSize: "0.9rem" }}>Temukan laptop terbaik untuk kebutuhan Anda</p>
+      </div>
+      <div style={{ display: "flex", gap: 12, marginBottom: 24, flexWrap: "wrap", alignItems: "center" }}>
+        <input style={{ ...G.input, width: 260 }} placeholder="Cari laptop atau merk..." value={search} onChange={e => setSearch(e.target.value)} />
+        <div style={{ display: "flex", gap: 6 }}>
+          {cats.map(c => (
+            <button key={c} onClick={() => setCat(c)} style={{ padding: "8px 16px", borderRadius: 99, border: `1.5px solid ${cat === c ? T.blue : T.border}`, background: cat === c ? T.blue : T.white, color: cat === c ? T.white : T.textMid, fontWeight: 600, fontSize: "0.8rem", cursor: "pointer", fontFamily: "inherit" }}>{c}</button>
+          ))}
+        </div>
+        <select style={{ ...G.input, width: 180 }} value={sort} onChange={e => setSort(e.target.value)}>
+          <option value="default">Urutan Default</option>
+          <option value="asc">Harga: Terendah</option>
+          <option value="desc">Harga: Tertinggi</option>
+        </select>
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 20 }}>
+        {list.map(p => (
+          <div key={p.id} style={{ ...G.card, overflow: "hidden", transition: "transform 0.2s, box-shadow 0.2s" }}
+            onMouseEnter={e => { e.currentTarget.style.transform = "translateY(-4px)"; e.currentTarget.style.boxShadow = "0 8px 24px rgba(0,0,0,0.1)"; }}
+            onMouseLeave={e => { e.currentTarget.style.transform = ""; e.currentTarget.style.boxShadow = G.card.boxShadow; }}>
+            <div style={{ background: T.silver, height: 180, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "4.5rem", position: "relative" }}>
+              {p.icon}
+              <div style={{ position: "absolute", top: 12, left: 12 }}>
+                <Badge label={p.badge} color={badgeColor[p.badge] || T.blue} />
+              </div>
+              <div style={{ position: "absolute", bottom: 10, right: 12, fontSize: "0.72rem", color: T.textMuted, fontWeight: 600 }}>Stok: {p.stock}</div>
+            </div>
+            <div style={{ padding: 20 }}>
+              <div style={{ fontSize: "0.72rem", fontWeight: 700, color: T.blue, letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 4 }}>{p.brand}</div>
+              <div style={{ fontWeight: 700, fontSize: "1rem", color: T.text, marginBottom: 10, lineHeight: 1.3 }}>{p.name}</div>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 5, marginBottom: 16 }}>
+                {p.specs.map(s => <span key={s} style={{ fontSize: "0.7rem", padding: "3px 8px", borderRadius: 5, background: T.silver, color: T.textMid, border: `1px solid ${T.border}` }}>{s}</span>)}
+              </div>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", paddingTop: 14, borderTop: `1px solid ${T.border}` }}>
+                <div>
+                  {p.oldPrice && <div style={{ fontSize: "0.75rem", color: T.textMuted, textDecoration: "line-through" }}>{fmt(p.oldPrice)}</div>}
+                  <div style={{ fontWeight: 800, fontSize: "1.2rem", color: T.navy }}>{fmt(p.price)}</div>
+                </div>
+                <button style={{ ...G.btnPrimary, padding: "9px 16px" }} onClick={() => { onAdd(p); }}>+ Keranjang</button>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ─── CART ─────────────────────────────────────────────────────────────────────
+function Cart({ cart, dispatch, setPage, addOrder }) {
+  const total = cart.reduce((a, i) => a + i.price * i.qty, 0);
+  if (cart.length === 0) return (
+    <div style={{ maxWidth: 700, margin: "0 auto", padding: "80px 24px", textAlign: "center" }}>
+      <div style={{ fontSize: "4rem", marginBottom: 16 }}>🛒</div>
+      <h2 style={{ color: T.navy, marginBottom: 8 }}>Keranjang Kosong</h2>
+      <p style={{ color: T.textMid, marginBottom: 24 }}>Tambahkan laptop pilihan Anda ke keranjang terlebih dahulu.</p>
+      <button style={G.btnPrimary} onClick={() => setPage("katalog")}>Lihat Katalog</button>
+    </div>
+  );
+  return (
+    <div style={{ maxWidth: 900, margin: "0 auto", padding: "32px 24px" }}>
+      <h1 style={{ fontSize: "1.5rem", fontWeight: 800, color: T.navy, marginBottom: 24 }}>Keranjang Belanja</h1>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 320px", gap: 24, alignItems: "start" }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          {cart.map(i => (
+            <div key={i.id} style={{ ...G.card, padding: 18, display: "flex", gap: 16, alignItems: "center" }}>
+              <div style={{ width: 64, height: 64, background: T.silver, borderRadius: T.radiusSm, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "2rem", flexShrink: 0 }}>{i.icon}</div>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: "0.7rem", fontWeight: 700, color: T.blue, textTransform: "uppercase", letterSpacing: "0.05em" }}>{i.brand}</div>
+                <div style={{ fontWeight: 700, color: T.text, marginBottom: 4 }}>{i.name}</div>
+                <div style={{ fontWeight: 800, color: T.navy }}>{fmt(i.price)}</div>
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <button onClick={() => dispatch({ type: "QTY", id: i.id, qty: i.qty - 1 })} style={{ width: 30, height: 30, border: `1px solid ${T.border}`, borderRadius: 6, cursor: "pointer", background: T.white, fontWeight: 700, fontSize: "1rem" }}>−</button>
+                <span style={{ width: 24, textAlign: "center", fontWeight: 700 }}>{i.qty}</span>
+                <button onClick={() => dispatch({ type: "QTY", id: i.id, qty: i.qty + 1 })} style={{ width: 30, height: 30, border: `1px solid ${T.border}`, borderRadius: 6, cursor: "pointer", background: T.white, fontWeight: 700, fontSize: "1rem" }}>+</button>
+              </div>
+              <div style={{ textAlign: "right", minWidth: 110 }}>
+                <div style={{ fontWeight: 800, color: T.navy }}>{fmt(i.price * i.qty)}</div>
+                <button onClick={() => dispatch({ type: "REMOVE", id: i.id })} style={{ fontSize: "0.75rem", color: T.red, background: "none", border: "none", cursor: "pointer", marginTop: 4 }}>Hapus</button>
+              </div>
+            </div>
+          ))}
+        </div>
+        <div style={{ ...G.card, padding: 24, position: "sticky", top: 76 }}>
+          <h3 style={{ fontWeight: 700, marginBottom: 20, color: T.navy }}>Ringkasan Pesanan</h3>
+          {cart.map(i => (
+            <div key={i.id} style={{ display: "flex", justifyContent: "space-between", marginBottom: 8, fontSize: "0.85rem" }}>
+              <span style={{ color: T.textMid }}>{i.name.split(" ").slice(0, 3).join(" ")} ×{i.qty}</span>
+              <span style={{ fontWeight: 600 }}>{fmt(i.price * i.qty)}</span>
+            </div>
+          ))}
+          <div style={{ borderTop: `1px solid ${T.border}`, marginTop: 16, paddingTop: 16, display: "flex", justifyContent: "space-between", fontWeight: 800, fontSize: "1.1rem", color: T.navy }}>
+            <span>Total</span><span>{fmt(total)}</span>
+          </div>
+          <button style={{ ...G.btnPrimary, width: "100%", marginTop: 20, padding: 13 }} onClick={() => setPage("checkout")}>Lanjut ke Checkout →</button>
+          <button style={{ ...G.btnGhost, width: "100%", marginTop: 10 }} onClick={() => setPage("katalog")}>Lanjut Belanja</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── CHECKOUT ─────────────────────────────────────────────────────────────────
+function Checkout({ cart, dispatch, user, addOrder, setPage, showToast }) {
+  const [step, setStep] = useState(1);
+  const [form, setForm] = useState({ name: user.name, phone: "", address: "", city: "", zip: "", notes: "" });
+  const [payment, setPayment] = useState("transfer");
+  const total = cart.reduce((a, i) => a + i.price * i.qty, 0);
+  const set = k => e => setForm(f => ({ ...f, [k]: e.target.value }));
+
+  const inp = (label, key, type = "text", ph = "", rows = 0) => (
+    <div style={{ marginBottom: 16 }}>
+      <label style={G.label}>{label}</label>
+      {rows > 0
+        ? <textarea style={{ ...G.input, resize: "vertical" }} rows={rows} placeholder={ph} value={form[key]} onChange={set(key)} />
+        : <input style={G.input} type={type} placeholder={ph} value={form[key]} onChange={set(key)} />
+      }
+    </div>
+  );
+
+  const placeOrder = () => {
+    const order = {
+      id: "ORD-" + genId(),
+      type: "order",
+      items: cart.map(i => ({ ...i })),
+      total,
+      form,
+      payment,
+      status: "pending",
+      date: new Date().toLocaleDateString("id-ID"),
+      user: user.name,
+    };
+    addOrder(order);
+    dispatch({ type: "CLEAR" });
+    setStep(3);
+    showToast("Pesanan berhasil dibuat!");
+  };
+
+  const METHODS = [
+    { id: "transfer", label: "Transfer Bank", icon: "🏦", desc: "BCA, Mandiri, BNI, BRI" },
+    { id: "ewallet", label: "E-Wallet", icon: "📱", desc: "GoPay, OVO, DANA, ShopeePay" },
+    { id: "cod", label: "Bayar di Tempat", icon: "💵", desc: "COD tersedia untuk area Jakarta" },
+  ];
+
+  return (
+    <div style={{ maxWidth: 860, margin: "0 auto", padding: "32px 24px" }}>
+      {/* Steps */}
+      <div style={{ display: "flex", alignItems: "center", marginBottom: 36, gap: 0 }}>
+        {["Data Pengiriman", "Pembayaran", "Konfirmasi"].map((s, i) => {
+          const n = i + 1;
+          const done = step > n, active = step === n;
+          return (
+            <div key={s} style={{ display: "flex", alignItems: "center", flex: i < 2 ? 1 : 0 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <div style={{ width: 32, height: 32, borderRadius: "50%", background: done || active ? T.blue : T.silver, color: done || active ? T.white : T.textMid, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: "0.85rem", flexShrink: 0 }}>
+                  {done ? "✓" : n}
+                </div>
+                <span style={{ fontWeight: 600, fontSize: "0.85rem", color: active ? T.navy : T.textMuted, whiteSpace: "nowrap" }}>{s}</span>
+              </div>
+              {i < 2 && <div style={{ flex: 1, height: 2, background: step > n ? T.blue : T.border, margin: "0 16px" }} />}
+            </div>
+          );
+        })}
+      </div>
+
+      {step === 1 && (
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 300px", gap: 24, alignItems: "start" }}>
+          <div style={{ ...G.card, padding: 28 }}>
+            <h3 style={{ fontWeight: 700, color: T.navy, marginBottom: 24 }}>Data Pengiriman</h3>
+            {inp("Nama Penerima", "name", "text", "Nama lengkap")}
+            {inp("No. Telepon", "phone", "tel", "08xx-xxxx-xxxx")}
+            {inp("Alamat Lengkap", "address", "text", "Jalan, no. rumah, RT/RW", 2)}
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+              <div>{inp("Kota", "city", "text", "Jakarta")}</div>
+              <div>{inp("Kode Pos", "zip", "text", "12345")}</div>
+            </div>
+            {inp("Catatan (opsional)", "notes", "text", "Instruksi khusus...", 2)}
+            <button style={{ ...G.btnPrimary, marginTop: 8 }} onClick={() => { if (!form.phone || !form.address || !form.city) { showToast("Lengkapi data pengiriman terlebih dahulu"); return; } setStep(2); }}>
+              Lanjut ke Pembayaran →
+            </button>
+          </div>
+          <OrderSummary cart={cart} total={total} />
+        </div>
+      )}
+
+      {step === 2 && (
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 300px", gap: 24, alignItems: "start" }}>
+          <div style={{ ...G.card, padding: 28 }}>
+            <h3 style={{ fontWeight: 700, color: T.navy, marginBottom: 24 }}>Metode Pembayaran</h3>
+            <div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 28 }}>
+              {METHODS.map(m => (
+                <label key={m.id} style={{ display: "flex", alignItems: "center", gap: 14, padding: "16px 18px", border: `2px solid ${payment === m.id ? T.blue : T.border}`, borderRadius: T.radius, cursor: "pointer", background: payment === m.id ? T.blueGlow : T.white }}>
+                  <input type="radio" name="pay" value={m.id} checked={payment === m.id} onChange={() => setPayment(m.id)} style={{ accentColor: T.blue }} />
+                  <span style={{ fontSize: "1.4rem" }}>{m.icon}</span>
+                  <div>
+                    <div style={{ fontWeight: 700, color: T.text }}>{m.label}</div>
+                    <div style={{ fontSize: "0.8rem", color: T.textMuted }}>{m.desc}</div>
+                  </div>
+                </label>
+              ))}
+            </div>
+            {payment === "transfer" && (
+              <div style={{ background: T.silver, borderRadius: T.radius, padding: 18, marginBottom: 20, fontSize: "0.85rem" }}>
+                <div style={{ fontWeight: 700, marginBottom: 8, color: T.navy }}>Info Rekening Tujuan</div>
+                <div style={{ color: T.textMid, lineHeight: 1.8 }}>
+                  Bank BCA: <strong>1234567890</strong><br />
+                  Bank Mandiri: <strong>0987654321</strong><br />
+                  A/N: <strong>PT TechNova Indonesia</strong>
+                </div>
+              </div>
+            )}
+            <div style={{ display: "flex", gap: 10 }}>
+              <button style={G.btnGhost} onClick={() => setStep(1)}>← Kembali</button>
+              <button style={G.btnPrimary} onClick={placeOrder}>Buat Pesanan ✓</button>
+            </div>
+          </div>
+          <OrderSummary cart={cart} total={total} />
+        </div>
+      )}
+
+      {step === 3 && (
+        <div style={{ ...G.card, padding: 48, textAlign: "center", maxWidth: 500, margin: "0 auto" }}>
+          <div style={{ fontSize: "4rem", marginBottom: 16 }}>🎉</div>
+          <h2 style={{ fontWeight: 800, color: T.navy, marginBottom: 8 }}>Pesanan Berhasil!</h2>
+          <p style={{ color: T.textMid, lineHeight: 1.7, marginBottom: 28 }}>
+            Pesanan Anda telah kami terima. Tim kami akan memproses pesanan dan menghubungi Anda dalam 1×24 jam.
+          </p>
+          <div style={{ display: "flex", gap: 12, justifyContent: "center" }}>
+            <button style={G.btnPrimary} onClick={() => setPage("pesanan")}>Lihat Pesanan Saya</button>
+            <button style={G.btnSecondary} onClick={() => setPage("katalog")}>Belanja Lagi</button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function OrderSummary({ cart, total }) {
+  return (
+    <div style={{ ...G.card, padding: 22, position: "sticky", top: 76 }}>
+      <div style={{ fontWeight: 700, color: T.navy, marginBottom: 16 }}>Ringkasan ({cart.reduce((a, i) => a + i.qty, 0)} item)</div>
+      {cart.map(i => (
+        <div key={i.id} style={{ display: "flex", gap: 10, marginBottom: 12, alignItems: "center" }}>
+          <span style={{ fontSize: "1.3rem" }}>{i.icon}</span>
+          <div style={{ flex: 1, fontSize: "0.8rem" }}>
+            <div style={{ fontWeight: 600, color: T.text, lineHeight: 1.2 }}>{i.name}</div>
+            <div style={{ color: T.textMuted }}>×{i.qty}</div>
+          </div>
+          <div style={{ fontWeight: 700, fontSize: "0.85rem" }}>{fmt(i.price * i.qty)}</div>
+        </div>
+      ))}
+      <div style={{ borderTop: `1px solid ${T.border}`, marginTop: 12, paddingTop: 12, display: "flex", justifyContent: "space-between", fontWeight: 800, color: T.navy }}>
+        <span>Total</span><span>{fmt(total)}</span>
+      </div>
+    </div>
+  );
+}
+
+// ─── BOOKING SERVIS ────────────────────────────────────────────────────────────
+function BookingServis({ addOrder, showToast, user }) {
+  const [step, setStep] = useState(1);
+  const [selected, setSelected] = useState(null);
+  const [form, setForm] = useState({ name: user.name, phone: "", laptop: "", issue: "", date: today(), tech: 1 });
+  const [done, setDone] = useState(false);
+  const set = k => e => setForm(f => ({ ...f, [k]: e.target.value }));
+
+  const inp = (label, key, type = "text", ph = "", rows = 0) => (
+    <div style={{ marginBottom: 16 }}>
+      <label style={G.label}>{label}</label>
+      {rows > 0
+        ? <textarea style={{ ...G.input, resize: "vertical" }} rows={rows} placeholder={ph} value={form[key]} onChange={set(key)} />
+        : <input style={G.input} type={type} placeholder={ph} value={form[key]} onChange={set(key)} />
+      }
+    </div>
+  );
+
+  const submit = () => {
+    if (!form.phone || !form.laptop || !form.issue) { showToast("Lengkapi semua data terlebih dahulu"); return; }
+    const svc = SERVICES.find(s => s.id === selected);
+    const tech = TECHNICIANS.find(t => t.id === Number(form.tech));
+    addOrder({
+      id: "SRV-" + genId(),
+      type: "booking",
+      service: svc,
+      technician: tech,
+      form: { ...form },
+      status: "booked",
+      date: form.date,
+      user: user.name,
+    });
+    showToast("Booking servis berhasil!");
+    setDone(true);
+  };
+
+  if (done) return (
+    <div style={{ maxWidth: 500, margin: "0 auto", padding: "80px 24px", textAlign: "center" }}>
+      <div style={{ ...G.card, padding: 48 }}>
+        <div style={{ fontSize: "4rem", marginBottom: 16 }}>🔧</div>
+        <h2 style={{ fontWeight: 800, color: T.navy, marginBottom: 8 }}>Booking Terkonfirmasi!</h2>
+        <p style={{ color: T.textMid, lineHeight: 1.7, marginBottom: 28 }}>Teknisi kami akan menghubungi Anda untuk konfirmasi jadwal. Diagnosa gratis untuk setiap booking!</p>
+        <button style={G.btnPrimary} onClick={() => { setDone(false); setStep(1); setSelected(null); }}>Booking Lagi</button>
+      </div>
+    </div>
+  );
+
+  return (
+    <div style={{ maxWidth: 900, margin: "0 auto", padding: "32px 24px" }}>
+      <div style={{ marginBottom: 28 }}>
+        <h1 style={{ fontSize: "1.6rem", fontWeight: 800, color: T.navy, marginBottom: 4 }}>Booking Servis Laptop</h1>
+        <p style={{ color: T.textMid, fontSize: "0.9rem" }}>Diagnosa gratis • Teknisi berpengalaman • Garansi 3 bulan</p>
+      </div>
+
+      {step === 1 && (
+        <>
+          <h3 style={{ fontWeight: 700, color: T.navy, marginBottom: 16 }}>Pilih Layanan</h3>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", gap: 14, marginBottom: 24 }}>
+            {SERVICES.map(s => (
+              <div key={s.id} onClick={() => setSelected(s.id)} style={{ ...G.card, padding: 20, cursor: "pointer", border: `2px solid ${selected === s.id ? T.blue : T.border}`, background: selected === s.id ? T.blueGlow : T.white, transition: "all 0.15s" }}>
+                <div style={{ fontSize: "2rem", marginBottom: 10 }}>{s.icon}</div>
+                <div style={{ fontWeight: 700, color: T.text, marginBottom: 4 }}>{s.name}</div>
+                <div style={{ fontSize: "0.8rem", color: T.textMuted, marginBottom: 10 }}>Estimasi: {s.duration}</div>
+                <div style={{ fontWeight: 800, color: T.navy }}>Mulai {fmt(s.price)}</div>
+              </div>
+            ))}
+          </div>
+          <button style={{ ...G.btnPrimary, opacity: selected ? 1 : 0.5 }} onClick={() => selected && setStep(2)}>
+            Lanjut — Isi Data →
+          </button>
+        </>
+      )}
+
+      {step === 2 && (
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 300px", gap: 24, alignItems: "start" }}>
+          <div style={{ ...G.card, padding: 28 }}>
+            <h3 style={{ fontWeight: 700, color: T.navy, marginBottom: 24 }}>Data Servis</h3>
+            {inp("Nama Anda", "name", "text", "Nama lengkap")}
+            {inp("No. Telepon", "phone", "tel", "08xx-xxxx-xxxx")}
+            {inp("Merk & Tipe Laptop", "laptop", "text", "contoh: Asus ROG Strix G15")}
+            <div style={{ marginBottom: 16 }}>
+              <label style={G.label}>Pilih Teknisi</label>
+              <select style={G.input} value={form.tech} onChange={set("tech")}>
+                {TECHNICIANS.map(t => (
+                  <option key={t.id} value={t.id}>{t.name} – {t.specialty} (⭐ {t.rating})</option>
+                ))}
+              </select>
+            </div>
+            {inp("Tanggal Kunjungan", "date", "date", "")}
+            {inp("Deskripsi Masalah", "issue", "text", "Ceritakan masalah laptop Anda...", 3)}
+            <div style={{ display: "flex", gap: 10, marginTop: 8 }}>
+              <button style={G.btnGhost} onClick={() => setStep(1)}>← Kembali</button>
+              <button style={G.btnPrimary} onClick={submit}>Konfirmasi Booking ✓</button>
+            </div>
+          </div>
+          <div style={{ ...G.card, padding: 22 }}>
+            <div style={{ fontWeight: 700, color: T.navy, marginBottom: 16 }}>Ringkasan Layanan</div>
+            {(() => {
+              const s = SERVICES.find(sv => sv.id === selected);
+              return s ? (
+                <div>
+                  <div style={{ fontSize: "2.5rem", marginBottom: 10, textAlign: "center" }}>{s.icon}</div>
+                  <div style={{ fontWeight: 700, color: T.text, marginBottom: 4 }}>{s.name}</div>
+                  <div style={{ fontSize: "0.82rem", color: T.textMuted, marginBottom: 12 }}>Estimasi: {s.duration}</div>
+                  <div style={{ display: "flex", justifyContent: "space-between", fontWeight: 800, color: T.navy }}>
+                    <span>Mulai dari</span><span>{fmt(s.price)}</span>
+                  </div>
+                  <div style={{ marginTop: 14, padding: 12, background: "#ECFDF5", borderRadius: T.radiusSm, fontSize: "0.8rem", color: "#065F46" }}>
+                    ✅ Diagnosa GRATIS • Garansi 3 Bulan
+                  </div>
+                </div>
+              ) : null;
+            })()}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── MY ORDERS ────────────────────────────────────────────────────────────────
+function MyOrders({ orders, user }) {
+  const myOrders = orders.filter(o => o.user === user.name);
+  if (myOrders.length === 0) return (
+    <div style={{ maxWidth: 700, margin: "0 auto", padding: "80px 24px", textAlign: "center" }}>
+      <div style={{ fontSize: "4rem", marginBottom: 16 }}>📦</div>
+      <h2 style={{ color: T.navy }}>Belum ada pesanan</h2>
+      <p style={{ color: T.textMid, marginTop: 8 }}>Riwayat pesanan dan booking servis Anda akan tampil di sini.</p>
+    </div>
+  );
+  return (
+    <div style={{ maxWidth: 900, margin: "0 auto", padding: "32px 24px" }}>
+      <h1 style={{ fontSize: "1.5rem", fontWeight: 800, color: T.navy, marginBottom: 24 }}>Pesanan & Booking Saya</h1>
+      <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+        {myOrders.map(o => (
+          <div key={o.id} style={{ ...G.card, padding: 22 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 14, flexWrap: "wrap", gap: 8 }}>
+              <div>
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <span style={{ fontWeight: 700, color: T.navy }}>{o.id}</span>
+                  <StatusPill status={o.status} />
+                  <Badge label={o.type === "booking" ? "Servis" : "Pembelian"} color={o.type === "booking" ? T.gold : T.blue} />
+                </div>
+                <div style={{ fontSize: "0.8rem", color: T.textMuted, marginTop: 4 }}>Tanggal: {o.date}</div>
+              </div>
+              {o.total && <div style={{ fontWeight: 800, fontSize: "1.1rem", color: T.navy }}>{fmt(o.total)}</div>}
+            </div>
+            {o.items && (
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                {o.items.map(i => (
+                  <div key={i.id} style={{ display: "flex", gap: 8, alignItems: "center", background: T.silver, borderRadius: T.radiusSm, padding: "6px 12px", fontSize: "0.82rem" }}>
+                    <span>{i.icon}</span><span style={{ fontWeight: 600 }}>{i.name} ×{i.qty}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+            {o.service && (
+              <div style={{ display: "flex", gap: 8, alignItems: "center", background: T.silver, borderRadius: T.radiusSm, padding: "8px 14px", fontSize: "0.85rem", width: "fit-content" }}>
+                <span>{o.service.icon}</span>
+                <div>
+                  <strong>{o.service.name}</strong>
+                  {o.technician && <span style={{ color: T.textMuted }}> — {o.technician.name}</span>}
+                </div>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ─── ADMIN DASHBOARD ──────────────────────────────────────────────────────────
+function AdminDashboard({ orders, dispatch, showToast }) {
+  const [tab, setTab] = useState("overview");
+  const [showAddProduct, setShowAddProduct] = useState(false);
+  const [products, setProducts] = useState(PRODUCTS);
+  const [newProduct, setNewProduct] = useState({ brand: "", name: "", price: "", category: "Gaming", stock: "", icon: "💻" });
+
+  const totalRev = orders.filter(o => o.type === "order").reduce((a, o) => a + (o.total || 0), 0);
+  const pendingOrders = orders.filter(o => o.status === "pending").length;
+  const totalBookings = orders.filter(o => o.type === "booking").length;
+
+  const TABS = [
+    { id: "overview", label: "Ringkasan", icon: "📊" },
+    { id: "orders", label: "Pesanan", icon: "📦" },
+    { id: "bookings", label: "Booking Servis", icon: "🔧" },
+    { id: "products", label: "Katalog Produk", icon: "💻" },
+  ];
+
+  const STATUS_OPTIONS = ["pending", "confirmed", "processing", "done", "cancelled"];
+
+  const setNp = k => e => setNewProduct(p => ({ ...p, [k]: e.target.value }));
+  const addProduct = () => {
+    if (!newProduct.brand || !newProduct.name || !newProduct.price) { showToast("Lengkapi data produk"); return; }
+    setProducts(ps => [...ps, { ...newProduct, id: Date.now(), price: Number(newProduct.price), stock: Number(newProduct.stock) || 0, oldPrice: null, badge: "Baru", specs: [] }]);
+    setNewProduct({ brand: "", name: "", price: "", category: "Gaming", stock: "", icon: "💻" });
+    setShowAddProduct(false);
+    showToast("Produk berhasil ditambahkan!");
+  };
+
+  return (
+    <div style={{ display: "flex", minHeight: "calc(100vh - 60px)", fontFamily: "'Inter', sans-serif" }}>
+      {/* Sidebar */}
+      <div style={{ width: 220, background: T.navy, flexShrink: 0, padding: "24px 0" }}>
+        <div style={{ padding: "0 16px 20px", fontSize: "0.72rem", fontWeight: 700, color: T.textMuted, letterSpacing: "0.08em", textTransform: "uppercase" }}>Panel Admin</div>
+        {TABS.map(t => (
+          <button key={t.id} onClick={() => setTab(t.id)} style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "12px 16px", border: "none", background: tab === t.id ? T.navyLight : "transparent", color: tab === t.id ? T.white : "#94A3B8", fontWeight: tab === t.id ? 700 : 500, fontSize: "0.875rem", cursor: "pointer", fontFamily: "inherit", borderLeft: `3px solid ${tab === t.id ? T.blueLt : "transparent"}`, textAlign: "left" }}>
+            <span>{t.icon}</span>{t.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Content */}
+      <div style={{ flex: 1, background: T.snow, padding: "32px", overflow: "auto" }}>
+
+        {tab === "overview" && (
+          <>
+            <h2 style={{ fontWeight: 800, color: T.navy, marginBottom: 24 }}>Ringkasan Dashboard</h2>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 16, marginBottom: 32 }}>
+              {[
+                { label: "Total Pendapatan", value: fmt(totalRev), icon: "💰", color: T.green },
+                { label: "Pesanan Masuk", value: orders.filter(o => o.type === "order").length, icon: "📦", color: T.blue },
+                { label: "Menunggu Proses", value: pendingOrders, icon: "⏳", color: T.orange },
+                { label: "Booking Servis", value: totalBookings, icon: "🔧", color: T.gold },
+              ].map(m => (
+                <div key={m.label} style={{ ...G.card, padding: 22 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12 }}>
+                    <span style={{ fontSize: "1.5rem" }}>{m.icon}</span>
+                    <div style={{ width: 8, height: 8, borderRadius: "50%", background: m.color }} />
+                  </div>
+                  <div style={{ fontWeight: 800, fontSize: "1.4rem", color: T.navy, marginBottom: 4 }}>{m.value}</div>
+                  <div style={{ fontSize: "0.8rem", color: T.textMuted }}>{m.label}</div>
+                </div>
+              ))}
+            </div>
+            <div style={{ ...G.card, padding: 24 }}>
+              <div style={{ fontWeight: 700, color: T.navy, marginBottom: 16 }}>Aktivitas Terbaru</div>
+              {orders.length === 0 ? (
+                <div style={{ color: T.textMuted, textAlign: "center", padding: "24px 0", fontSize: "0.875rem" }}>Belum ada aktivitas</div>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                  {orders.slice(0, 6).map(o => (
+                    <div key={o.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 0", borderBottom: `1px solid ${T.border}` }}>
+                      <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+                        <span style={{ fontSize: "1.2rem" }}>{o.type === "booking" ? "🔧" : "📦"}</span>
+                        <div>
+                          <div style={{ fontWeight: 600, fontSize: "0.875rem", color: T.text }}>{o.id}</div>
+                          <div style={{ fontSize: "0.75rem", color: T.textMuted }}>{o.user} • {o.date}</div>
+                        </div>
+                      </div>
+                      <StatusPill status={o.status} />
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </>
+        )}
+
+        {tab === "orders" && (
+          <>
+            <h2 style={{ fontWeight: 800, color: T.navy, marginBottom: 24 }}>Manajemen Pesanan</h2>
+            {orders.filter(o => o.type === "order").length === 0 ? (
+              <div style={{ ...G.card, padding: 48, textAlign: "center", color: T.textMuted }}>Belum ada pesanan masuk</div>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                {orders.filter(o => o.type === "order").map(o => (
+                  <div key={o.id} style={{ ...G.card, padding: 22 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 10 }}>
+                      <div>
+                        <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 4 }}>
+                          <span style={{ fontWeight: 700, color: T.navy }}>{o.id}</span>
+                          <StatusPill status={o.status} />
+                        </div>
+                        <div style={{ fontSize: "0.8rem", color: T.textMuted }}>{o.user} • {o.date} • {o.payment === "transfer" ? "Transfer Bank" : o.payment === "ewallet" ? "E-Wallet" : "COD"}</div>
+                        <div style={{ marginTop: 8, display: "flex", flexWrap: "wrap", gap: 6 }}>
+                          {o.items.map(i => <span key={i.id} style={{ fontSize: "0.78rem", background: T.silver, padding: "3px 9px", borderRadius: T.radiusSm, color: T.textMid }}>{i.icon} {i.name} ×{i.qty}</span>)}
+                        </div>
+                      </div>
+                      <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 10 }}>
+                        <div style={{ fontWeight: 800, fontSize: "1.1rem", color: T.navy }}>{fmt(o.total)}</div>
+                        <select style={{ ...G.input, width: 160, fontSize: "0.8rem" }} value={o.status} onChange={e => { dispatch({ type: "UPDATE_STATUS", id: o.id, status: e.target.value }); showToast(`Status ${o.id} diperbarui`); }}>
+                          {STATUS_OPTIONS.filter(s => s !== "booked").map(s => <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>)}
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </>
+        )}
+
+        {tab === "bookings" && (
+          <>
+            <h2 style={{ fontWeight: 800, color: T.navy, marginBottom: 24 }}>Manajemen Booking Servis</h2>
+            {orders.filter(o => o.type === "booking").length === 0 ? (
+              <div style={{ ...G.card, padding: 48, textAlign: "center", color: T.textMuted }}>Belum ada booking servis</div>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                {orders.filter(o => o.type === "booking").map(o => (
+                  <div key={o.id} style={{ ...G.card, padding: 22 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 10 }}>
+                      <div>
+                        <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 4 }}>
+                          <span style={{ fontWeight: 700, color: T.navy }}>{o.id}</span>
+                          <StatusPill status={o.status} />
+                        </div>
+                        <div style={{ fontSize: "0.8rem", color: T.textMuted, marginBottom: 8 }}>{o.user} • {o.date} • {o.form.phone}</div>
+                        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                          <span style={{ fontSize: "0.82rem", background: "#FEF9C3", border: "1px solid #FDE68A", padding: "4px 10px", borderRadius: T.radiusSm, color: "#92400E" }}>{o.service?.icon} {o.service?.name}</span>
+                          <span style={{ fontSize: "0.82rem", background: T.silver, padding: "4px 10px", borderRadius: T.radiusSm, color: T.textMid }}>💻 {o.form.laptop}</span>
+                          {o.technician && <span style={{ fontSize: "0.82rem", background: T.silver, padding: "4px 10px", borderRadius: T.radiusSm, color: T.textMid }}>👤 {o.technician.name}</span>}
+                        </div>
+                        {o.form.issue && <div style={{ marginTop: 8, fontSize: "0.8rem", color: T.textMuted }}>📝 {o.form.issue}</div>}
+                      </div>
+                      <div>
+                        <select style={{ ...G.input, width: 160, fontSize: "0.8rem" }} value={o.status} onChange={e => { dispatch({ type: "UPDATE_STATUS", id: o.id, status: e.target.value }); showToast(`Status ${o.id} diperbarui`); }}>
+                          {["booked", "confirmed", "processing", "done", "cancelled"].map(s => <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>)}
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </>
+        )}
+
+        {tab === "products" && (
+          <>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24, flexWrap: "wrap", gap: 12 }}>
+              <h2 style={{ fontWeight: 800, color: T.navy }}>Katalog Produk</h2>
+              <button style={G.btnPrimary} onClick={() => setShowAddProduct(true)}>+ Tambah Produk</button>
+            </div>
+            <div style={{ ...G.card, overflow: "hidden" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.875rem" }}>
+                <thead>
+                  <tr style={{ background: T.silver }}>
+                    {["Produk", "Kategori", "Harga", "Stok", "Badge"].map(h => (
+                      <th key={h} style={{ padding: "12px 16px", textAlign: "left", fontWeight: 700, color: T.textMid, fontSize: "0.78rem", textTransform: "uppercase", letterSpacing: "0.04em" }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {products.map((p, i) => (
+                    <tr key={p.id} style={{ borderTop: `1px solid ${T.border}`, background: i % 2 === 0 ? T.white : "#FAFBFC" }}>
+                      <td style={{ padding: "14px 16px" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                          <span style={{ fontSize: "1.3rem" }}>{p.icon}</span>
+                          <div>
+                            <div style={{ fontWeight: 600, color: T.text }}>{p.name}</div>
+                            <div style={{ fontSize: "0.75rem", color: T.textMuted }}>{p.brand}</div>
+                          </div>
+                        </div>
+                      </td>
+                      <td style={{ padding: "14px 16px", color: T.textMid }}>{p.category}</td>
+                      <td style={{ padding: "14px 16px", fontWeight: 700, color: T.navy }}>{fmt(p.price)}</td>
+                      <td style={{ padding: "14px 16px" }}>
+                        <span style={{ padding: "3px 10px", borderRadius: 99, background: p.stock > 5 ? "#ECFDF5" : "#FEF9C3", color: p.stock > 5 ? T.green : T.gold, fontWeight: 700, fontSize: "0.8rem" }}>{p.stock}</span>
+                      </td>
+                      <td style={{ padding: "14px 16px" }}><Badge label={p.badge} color={T.blue} /></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {showAddProduct && (
+              <Modal title="Tambah Produk Baru" onClose={() => setShowAddProduct(false)}>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+                  {[["Merk", "brand", "ASUS"], ["Nama Produk", "name", "ROG..."], ["Harga (Rp)", "price", "15000000"], ["Stok", "stock", "10"], ["Ikon Emoji", "icon", "💻"]].map(([label, key, ph]) => (
+                    <div key={key} style={{ gridColumn: key === "name" ? "1/-1" : "auto" }}>
+                      <label style={G.label}>{label}</label>
+                      <input style={G.input} placeholder={ph} value={newProduct[key]} onChange={setNp(key)} />
+                    </div>
+                  ))}
+                  <div>
+                    <label style={G.label}>Kategori</label>
+                    <select style={G.input} value={newProduct.category} onChange={setNp("category")}>
+                      {["Gaming", "Bisnis", "Kreatif", "Pelajar"].map(c => <option key={c}>{c}</option>)}
+                    </select>
+                  </div>
+                </div>
+                <div style={{ display: "flex", gap: 10, marginTop: 24 }}>
+                  <button style={G.btnPrimary} onClick={addProduct}>Simpan Produk</button>
+                  <button style={G.btnGhost} onClick={() => setShowAddProduct(false)}>Batal</button>
+                </div>
+              </Modal>
+            )}
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── APP ROOT ─────────────────────────────────────────────────────────────────
+export default function App() {
+  const [token, setToken] = useState(null);
+  const [page, setPage] = useState("katalog");
+  const [cart, dispatch] = useReducer(cartReducer, []);
+  const [orders, orderDispatch] = useReducer(orderReducer, []);
+  const [toast, setToast] = useState(null);
+
+  const user = token ? mockDecode(token) : null;
+
+  const showToast = useCallback(msg => setToast(msg), []);
+  const hideToast = useCallback(() => setToast(null), []);
+
+  const addOrder = useCallback(o => orderDispatch({ type: o.type === "booking" ? "ADD_BOOKING" : "ADD_ORDER", order: o, booking: o }), []);
+
+  const handleLogin = tok => { setToken(tok); const u = mockDecode(tok); setPage(u.role === "admin" ? "admin" : "katalog"); };
+  const handleLogout = () => { setToken(null); setPage("katalog"); };
+
+  if (!user) return <AuthScreen onLogin={handleLogin} />;
+
+  const addToCart = item => { dispatch({ type: "ADD", item }); showToast(`${item.name} ditambahkan ke keranjang`); };
+
+  return (
+    <div style={{ fontFamily: "'Inter', sans-serif", minHeight: "100vh", background: T.snow }}>
+      <style>{`* { box-sizing: border-box; margin: 0; padding: 0; } input, select, textarea { transition: border-color 0.15s; } input:focus, select:focus, textarea:focus { border-color: #1A56DB !important; outline: none; box-shadow: 0 0 0 3px rgba(26,86,219,0.1); }`}</style>
+      <TopNav user={user} cart={cart} page={page} setPage={setPage} onLogout={handleLogout} />
+      {page === "katalog" && <Katalog onAdd={addToCart} setPage={setPage} />}
+      {page === "cart" && <Cart cart={cart} dispatch={dispatch} setPage={setPage} addOrder={addOrder} />}
+      {page === "checkout" && <Checkout cart={cart} dispatch={dispatch} user={user} addOrder={addOrder} setPage={setPage} showToast={showToast} />}
+      {page === "servis" && <BookingServis addOrder={addOrder} showToast={showToast} user={user} />}
+      {page === "pesanan" && <MyOrders orders={orders} user={user} />}
+      {page === "admin" && user.role === "admin" && <AdminDashboard orders={orders} dispatch={orderDispatch} showToast={showToast} />}
+      {toast && <Toast msg={toast} onClose={hideToast} />}
+    </div>
+  );
+}
